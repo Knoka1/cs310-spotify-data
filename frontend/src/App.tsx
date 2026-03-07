@@ -8,8 +8,8 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<'playlist' | 'artist' | 'compare'>('playlist');
 
   return (
-    <div className="min-h-screen bg-gray-50 p-8">
-      <div className="max-w-4xl mx-auto">
+    <div className="min-h-screen w-full bg-gray-50 p-8">
+      <div className="w-full">
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-center gap-3 mb-1">
