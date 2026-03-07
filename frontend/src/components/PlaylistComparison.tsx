@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Loader2 } from 'lucide-react';
+import { Button } from './ui/button';
 
 interface ComparisonResult {
   similarityScore: number;
@@ -78,10 +79,11 @@ export function PlaylistComparison() {
         />
       </div>
 
-      <button
+      <Button
         onClick={handleCompare}
         disabled={loading}
-        className="w-full bg-gray-900 text-white py-3 rounded-lg hover:bg-gray-800 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+        size="lg"
+        className="w-full py-3"
       >
         {loading ? (
           <>
@@ -91,7 +93,7 @@ export function PlaylistComparison() {
         ) : (
           'Compare Playlists'
         )}
-      </button>
+      </Button>
 
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">

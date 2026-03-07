@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
+import { Button } from './ui/button';
 
 interface AnalysisResult {
   topGenres: { genre: string; percentage: number }[];
@@ -110,10 +111,11 @@ export function PlaylistAnalysis() {
         </div>
       </div>
 
-      <button
+      <Button
         onClick={handleAnalyze}
         disabled={loading}
-        className="w-full bg-gray-900 text-white py-3 rounded-lg hover:bg-gray-800 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+        size="lg"
+        className="w-full py-3"
       >
         {loading ? (
           <>
@@ -123,7 +125,7 @@ export function PlaylistAnalysis() {
         ) : (
           'Analyze Playlist'
         )}
-      </button>
+      </Button>
 
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">

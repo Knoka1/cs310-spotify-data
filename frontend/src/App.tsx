@@ -3,6 +3,7 @@ import { Music2, TrendingUp, Users } from 'lucide-react';
 import { PlaylistAnalysis } from './components/PlaylistAnalysis';
 import { ArtistAnalysis } from './components/ArtistAnalysis';
 import { PlaylistComparison } from './components/PlaylistComparison';
+import { Button } from './components/ui/button';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<'playlist' | 'artist' | 'compare'>('playlist');
@@ -22,39 +23,33 @@ export default function App() {
 
         {/* Tab Navigation */}
         <div className="flex gap-4 mb-8 border-b border-gray-200">
-          <button
+          <Button
+            variant="ghost"
             onClick={() => setActiveTab('playlist')}
-            className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-colors ${
-              activeTab === 'playlist'
-                ? 'border-gray-900 text-gray-900'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
-            }`}
+            className={`rounded-none border-b-2 ${activeTab === 'playlist' ? 'border-gray-900 text-gray-900' : 'border-transparent text-gray-500'}`}
           >
             <Music2 className="w-5 h-5" />
             Playlist Analysis
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="ghost"
             onClick={() => setActiveTab('artist')}
-            className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-colors ${
-              activeTab === 'artist'
-                ? 'border-gray-900 text-gray-900'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
-            }`}
+            className={`rounded-none border-b-2 ${activeTab === 'artist' ? 'border-gray-900 text-gray-900' : 'border-transparent text-gray-500'}`}
           >
             <Users className="w-5 h-5" />
             Artist Analysis
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="ghost"
             onClick={() => setActiveTab('compare')}
-            className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-colors ${
-              activeTab === 'compare'
-                ? 'border-gray-900 text-gray-900'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
-            }`}
+            className={`rounded-none border-b-2 ${activeTab === 'compare' ? 'border-gray-900 text-gray-900' : 'border-transparent text-gray-500'}`}
           >
             <TrendingUp className="w-5 h-5" />
             Comparison
-          </button>
+          </Button>
+          <Button variant="ghost" className='bg-red-500'>
+            test
+          </Button>
         </div>
 
         {/* Content */}
