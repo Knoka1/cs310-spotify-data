@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
-import { Button } from './ui/button';
+import { Button } from '@/components/ui/button';
 
 interface AnalysisResult {
   topGenres: { genre: string; percentage: number }[];
@@ -168,7 +168,7 @@ export function PlaylistAnalysis() {
           <div>
             <h3 className="font-semibold text-gray-900 mb-3">Top Artists</h3>
             <div className="grid grid-cols-2 gap-2">
-              {result.topArtists.map((artist, index) => (
+              {result.topArtists.map((artist) => (
                 <div
                   key={artist.name}
                   className="flex items-center justify-between px-3 py-2 bg-gray-50 rounded"
@@ -200,13 +200,13 @@ export function PlaylistAnalysis() {
                 <div className="text-2xl font-semibold text-gray-900">
                   {Math.round(result.audioFeatures.valence * 100)}%
                 </div>
-                <div className="text-sm text-gray-600">Positivity</div>
+                <div className="text-sm text-gray-600">Valence (Positivity)</div>
               </div>
               <div className="text-center p-3 bg-gray-50 rounded">
                 <div className="text-2xl font-semibold text-gray-900">
-                  {Math.round(result.audioFeatures.tempo)}
+                  {Math.round(result.audioFeatures.tempo)} BPM
                 </div>
-                <div className="text-sm text-gray-600">BPM</div>
+                <div className="text-sm text-gray-600">Avg Tempo</div>
               </div>
             </div>
           </div>

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
-import { Button } from './ui/button';
+import { Button } from '@/components/ui/button';
 
 interface ArtistResult {
   artistName: string;
@@ -179,7 +179,7 @@ export function ArtistAnalysis() {
                   key={track}
                   className="flex items-center gap-3 px-3 py-2 bg-gray-50 rounded"
                 >
-                  <span className="text-sm font-medium text-gray-500 min-w-[20px]">
+                  <span className="text-sm font-medium text-gray-500 min-w-5">
                     {index + 1}
                   </span>
                   <span className="text-sm text-gray-700">{track}</span>
@@ -199,25 +199,17 @@ export function ArtistAnalysis() {
                 { name: 'Speechiness', value: result.audioFeatures.speechiness },
                 { name: 'Danceability', value: result.audioFeatures.danceability },
               ].map((feature) => (
-                <div key={feature.name}>
-                  <div className="flex justify-between text-sm mb-1">
-                    <span className="text-gray-700">{feature.name}</span>
-                    <span className="text-gray-500">
-                      {feature.name === 'Loudness' 
-                        ? `${feature.value.toFixed(1)} dB`
-                        : `${Math.round(feature.value * 100)}%`}
-                    </span>
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2">
+                <div key={feature.name} className="flex items-center gap-3">
+                  <span className="text-sm text-gray-700 w-32">{feature.name}</span>
+                  <div className="flex-1 bg-gray-200 rounded-full h-2">
                     <div
                       className="bg-gray-900 h-2 rounded-full"
-                      style={{ 
-                        width: feature.name === 'Loudness'
-                          ? `${Math.min(100, ((feature.value + 60) / 60) * 100)}%`
-                          : `${feature.value * 100}%`
-                      }}
+                      style={{ width: `${Math.round(feature.value * 100)}%` }}
                     />
                   </div>
+                  <span className="text-sm text-gray-500 min-w-[40px] text-right">
+                    {Math.round(feature.value * 100)}%
+                  </span>
                 </div>
               ))}
             </div>

@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { Music2, TrendingUp, Users } from 'lucide-react';
-import { PlaylistAnalysis } from './components/PlaylistAnalysis';
-import { ArtistAnalysis } from './components/ArtistAnalysis';
-import { PlaylistComparison } from './components/PlaylistComparison';
-import { Button } from './components/ui/button';
+import { PlaylistAnalysis } from '@/components/PlaylistAnalysis';
+import { ArtistAnalysis } from '@/components/ArtistAnalysis';
+import { PlaylistComparison } from '@/components/PlaylistComparison';
+import { Button } from '@/components/ui/button';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<'playlist' | 'artist' | 'compare'>('playlist');
@@ -46,9 +46,6 @@ export default function App() {
           >
             <TrendingUp className="w-5 h-5" />
             Comparison
-          </Button>
-          <Button variant="ghost" className='bg-red-500'>
-            test
           </Button>
         </div>
 
