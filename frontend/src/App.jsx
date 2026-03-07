@@ -1,35 +1,69 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import { useState } from 'react';
+import { Music2, TrendingUp, Users } from 'lucide-react';
+import { PlaylistAnalysis } from './components/PlaylistAnalysis';
+import { ArtistAnalysis } from './components/ArtistAnalysis';
+import { PlaylistComparison } from './components/PlaylistComparison';
 
-function App() {
-  const [count, setCount] = useState(0)
+export default function App() {
+  const [activeTab, setActiveTab] = useState<'playlist' | 'artist' | 'compare'>('playlist');
 
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.jsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
-}
+    <div className="min-h-screen bg-gray-50 p-8">
+      <div className="max-w-4xl mx-auto">
+        {/* Header */}
+        <div className="mb-8">
+          <div className="flex items-center gap-3 mb-1">
+            <Music2 className="w-8 h-8 text-gray-900" />
+            <h1 className="text-3xl font-bold text-gray-900">MusicMood</h1>
+          </div>
+          <p className="text-gray-600 ml-11">Analyze playlists and artists with detailed insights</p>
+          <hr className="mt-6" />
+        </div>
 
-export default App
+        {/* Tab Navigation */}
+        <div className="flex gap-4 mb-8 border-b border-gray-200">
+          <button
+            onClick={() => setActiveTab('playlist')}
+            className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-colors ${
+              activeTab === 'playlist'
+                ? 'border-gray-900 text-gray-900'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            <Music2 className="w-5 h-5" />
+            Playlist Analysis
+          </button>
+          <button
+            onClick={() => setActiveTab('artist')}
+            className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-colors ${
+              activeTab === 'artist'
+                ? 'border-gray-900 text-gray-900'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            <Users className="w-5 h-5" />
+            Artist Analysis
+          </button>
+          <button
+            onClick={() => setActiveTab('compare')}
+            className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-colors ${
+              activeTab === 'compare'
+                ? 'border-gray-900 text-gray-900'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            <TrendingUp className="w-5 h-5" />
+            Comparison
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="bg-white rounded-lg shadow-sm p-8">
+          {activeTab === 'playlist' && <PlaylistAnalysis />}
+          {activeTab === 'artist' && <ArtistAnalysis />}
+          {activeTab === 'compare' && <PlaylistComparison />}
+        </div>
+      </div>
+    </div>
+  );
+}
