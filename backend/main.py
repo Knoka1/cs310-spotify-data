@@ -102,13 +102,13 @@ def root():
 def search(
     q: str = Query(..., description="Search query"),
     type: str = Query("track", description="Type: track, artist, album, playlist"),
-    limit: int = Query(20, ge=1, le=50),
+    limit: int = Query(5, ge=1, le=10),
 ):
     """Search for tracks, artists, albums, or playlists."""
     return spotify_request("search", {"q": q, "type": type, "limit": limit})
 
 
-# Artist endpoints
+# Artist endpoints - does not return genre and popularity
 @app.get("/artists/{artist_id}")
 def get_artist(artist_id: str):
     """Get an artist by ID."""
@@ -116,16 +116,9 @@ def get_artist(artist_id: str):
 
 
 @app.get("/artists/{artist_id}/albums")
-def get_artist_albums(artist_id: str, limit: int = Query(20, ge=1, le=50)):
+def get_artist_albums(artist_id: str, limit: int = Query(10, ge=1, le=15)):
     """Get an artist's albums."""
     return spotify_request(f"artists/{artist_id}/albums", {"limit": limit})
-
-
-@app.get("/artists/{artist_id}/top-tracks")
-def get_artist_top_tracks(artist_id: str, market: str = Query("US")):
-    """Get an artist's top tracks."""
-    return spotify_request(f"artists/{artist_id}/top-tracks", {"market": market})
-
 
 # Album endpoints
 @app.get("/albums/{album_id}")
@@ -147,23 +140,20 @@ def get_track(track_id: str):
     return spotify_request(f"tracks/{track_id}")
 
 
-@app.get("/tracks/{track_id}/audio-features")
-def get_track_audio_features(track_id: str):
-    """Get audio features for a track."""
-    return spotify_request(f"audio-features/{track_id}")
 
-
-# Playlist endpoints
+# Playlist endpoints -  might need OAUTH for some endpoints, but works for public playlists
 @app.get("/playlists/{playlist_id}")
 def get_playlist(playlist_id: str):
     """Get a playlist by ID."""
     return spotify_request(f"playlists/{playlist_id}")
 
+# works but only with OAUTH
+@app.get("/playlists/{playlist_id}/items")
+def get_playlist_items(playlist_id: str, limit: int = Query(100, ge=1, le=100)):
+    """Get a playlist's items (tracks)."""
+    return spotify_request(f"playlists/{playlist_id}/items", {"limit": limit})
 
-@app.get("/playlists/{playlist_id}/tracks")
-def get_playlist_tracks(playlist_id: str, limit: int = Query(100, ge=1, le=100)):
-    """Get a playlist's tracks."""
-    return spotify_request(f"playlists/{playlist_id}/tracks", {"limit": limit})
+
 
 
 if __name__ == "__main__":
