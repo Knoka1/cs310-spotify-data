@@ -8,6 +8,9 @@ import requests
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
+from datetime import datetime
+import time
+import re
 
 load_dotenv()
 
@@ -86,7 +89,11 @@ def spotify_request(endpoint: str, params: dict = None) -> dict:
         return spotify_request(endpoint, params)
     
     if response.status_code != 200:
-        raise HTTPException(status_code=response.status_code, detail=response.json())
+        try:
+            detail = response.json()
+        except:
+            detail = {"error": response.status_code, "message": response.text or "Empty response from Spotify"}
+        raise HTTPException(status_code=response.status_code, detail=detail)
     
     return response.json()
 
@@ -152,6 +159,169 @@ def get_playlist(playlist_id: str):
 def get_playlist_items(playlist_id: str, limit: int = Query(100, ge=1, le=100)):
     """Get a playlist's items (tracks)."""
     return spotify_request(f"playlists/{playlist_id}/items", {"limit": limit})
+
+
+
+def clean_album_name(name: str) -> str:
+    """Remove anything in parentheses or brackets from album name."""
+    clean = re.sub(r'\(.*?\)', '', name)  
+    clean = re.sub(r'\[.*?\]', '', clean) 
+    return clean.strip(":- ").strip()
+
+@app.get("/artists/{artist_id}/eras")
+def get_artist_eras(artist_id: str):
+    """Analyze an artist's era structure based on their discography."""
+    
+    all_albums = []
+    offset = 0
+    limit = 10
+    while True:
+        data = spotify_request(f"artists/{artist_id}/albums", {
+            "limit": limit,
+            "offset": offset,
+            "include_groups": "album"
+        })
+        all_albums.extend(data["items"])
+        if not data.get("next"):
+            break
+        offset += limit
+        time.sleep(0.5)
+
+    if not all_albums:
+        raise HTTPException(status_code=404, detail="No albums found for this artist.")
+
+    exclude_keywords = [
+        "karaoke", "live", "tour", "session", "surprise song", "stripped",
+        "commentary", "instrumental", "acoustic collection"
+    ]
+
+    #suffixed to ignore
+    rerelease_suffixes = [
+        "taylor's version", "the anthology", "deluxe edition", "deluxe version",
+        "platinum edition", "track by track version", "til dawn edition",
+        "super deluxe", "expanded edition", "anniversary edition",
+        "remastered", "reissue", "special edition", "complete edition",
+        "collector's edition", "bonus tracks"
+    ]
+
+    #Parse dates and filter
+    parsed = []
+    for album in all_albums:
+        name_lower = album["name"].lower()
+
+        #filtering out duplicates and non official albums
+        if any(keyword in name_lower for keyword in exclude_keywords):
+            continue
+
+        raw_date = album.get("release_date", "")
+        try:
+            if len(raw_date) == 4:
+                date = datetime(int(raw_date), 1, 1)
+            elif len(raw_date) == 7:
+                date = datetime.strptime(raw_date, "%Y-%m")
+            else:
+                date = datetime.strptime(raw_date, "%Y-%m-%d")
+            parsed.append({
+                "id": album["id"],
+                "name": album["name"],
+                "release_date": raw_date,
+                "total_tracks": album["total_tracks"],
+                "images": album["images"],
+                "parsed_date": date
+            })
+        except:
+            continue
+
+    if not parsed:
+        raise HTTPException(status_code=404, detail="No studio albums found after filtering.")
+
+    parsed.sort(key=lambda x: x["parsed_date"])
+    #strip re-release suffixes and keep the valid version
+    seen_names = {}
+    for album in parsed:
+        base_name = album["name"].lower()
+        for suffix in rerelease_suffixes:
+            base_name = base_name.replace(f"({suffix})", "").replace(suffix, "").strip()
+     
+        base_name = re.sub(r'\(.*?\)', '', album["name"].lower())
+        base_name = re.sub(r'\[.*?\]', '', base_name)
+        base_name = base_name.strip(":- ").strip()
+
+        if base_name not in seen_names:
+            seen_names[base_name] = album
+
+    parsed = sorted(seen_names.values(), key=lambda x: x["parsed_date"])
+
+    deduped = [parsed[0]]
+    for i in range(1, len(parsed)):
+        gap = (parsed[i]["parsed_date"] - deduped[-1]["parsed_date"]).days
+        if gap > 7:
+            deduped.append(parsed[i])
+    parsed = deduped
+
+    #gap calculation and era structure
+    eras = []
+    for i, album in enumerate(parsed):
+        gap_days = None
+        gap_years = None
+        if i > 0:
+            prev_date = parsed[i - 1]["parsed_date"]
+            gap_days = (album["parsed_date"] - prev_date).days
+            gap_years = round(gap_days / 365.25, 1)
+
+        eras.append({
+            "era_number": i + 1,
+            "album_name": clean_album_name(album["name"]), 
+            "release_date": album["release_date"],
+            "total_tracks": album["total_tracks"],
+            "gap_from_previous_days": gap_days,
+            "gap_from_previous_years": gap_years,
+        })
+
+    #Summary 
+    gaps = [e["gap_from_previous_days"] for e in eras if e["gap_from_previous_days"] is not None]
+
+    longest_era = max(eras[1:], key=lambda x: x["gap_from_previous_days"]) if len(eras) > 1 else None
+    shortest_era = min(eras[1:], key=lambda x: x["gap_from_previous_days"]) if len(eras) > 1 else None
+    most_active_era = shortest_era
+
+    first_year = parsed[0]["parsed_date"].year
+    latest_year = parsed[-1]["parsed_date"].year
+    avg_gap_days = round(sum(gaps) / len(gaps)) if gaps else None
+    avg_gap_years = round(avg_gap_days / 365.25, 1) if avg_gap_days else None
+
+    return {
+    "artist_id": artist_id,
+    "summary": {
+        "first_album_year": first_year,
+        "latest_album_year": latest_year,
+        "career_span_years": latest_year - first_year,
+        "total_eras": len(eras),
+        "average_gap_between_albums_years": avg_gap_years,
+        "longest_era": {
+            "album": longest_era["album_name"],
+            "gap_years": longest_era["gap_from_previous_years"]
+        } if longest_era else None,
+        "shortest_era": {
+            "album": shortest_era["album_name"],
+            "gap_years": shortest_era["gap_from_previous_years"]
+        } if shortest_era else None,
+    },
+    "timeline": [
+        {
+            "era_number": e["era_number"],
+            "album_name": e["album_name"],
+            "release_date": e["release_date"],
+            "release_year": int(e["release_date"][:4]),
+            "total_tracks": e["total_tracks"],
+            "gap_years": e["gap_from_previous_years"],
+            "gap_label": f"{e['gap_from_previous_years']} years since last album" if e["gap_from_previous_years"] else "Debut album",
+            "cover_image": next((img["url"] for img in parsed[i]["images"] if img["height"] == 640),
+                               parsed[i]["images"][0]["url"] if parsed[i]["images"] else None),
+        }
+        for i, e in enumerate(eras)
+    ]
+}
 
 
 
