@@ -39,6 +39,9 @@ CLIENT_SECRET = os.getenv("SPOTIFY_CLIENT_SECRET")
 # Token cache
 _access_token = None
 
+# Simple in-memory cache
+_album_cache = {}
+
 
 def get_access_token() -> str:
     """Get or refresh Spotify access token."""
@@ -159,6 +162,10 @@ def get_all_artist_albums(artist_id: str) -> List[Dict[str, Any]]:
     """
     Fetch all albums for an artist, handling pagination.
     """
+
+    if artist_id in _album_cache:
+        return _album_cache[artist_id]
+
     albums = []
     offset = 0
     limit = 10
@@ -179,12 +186,13 @@ def get_all_artist_albums(artist_id: str) -> List[Dict[str, Any]]:
 
         albums.extend(items)
 
-        if len(items) < limit:
-            break
-
         offset += limit
+        
+        if not data.get("next"):
+            break
+            
         time.sleep(0.5)
-
+    _album_cache[artist_id] = albums
     return albums
 
 
@@ -400,7 +408,7 @@ def clean_album_name(name: str) -> str:
 @app.get("/artists/{artist_id}/eras")
 def get_artist_eras(artist_id: str):
     """Analyze an artist's era structure based on their discography."""
-    
+    """
     all_albums = []
     offset = 0
     limit = 10
@@ -415,6 +423,8 @@ def get_artist_eras(artist_id: str):
             break
         offset += limit
         time.sleep(0.5)
+    """
+    all_albums = get_all_artist_albums(artist_id)
 
     if not all_albums:
         raise HTTPException(status_code=404, detail="No albums found for this artist.")
