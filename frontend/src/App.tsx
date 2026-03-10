@@ -3,7 +3,7 @@ import { Music2, TrendingUp, Users, Clock } from 'lucide-react';
 import { PlaylistAnalysis } from '@/components/PlaylistAnalysis';
 import { ArtistAnalysis } from '@/components/ArtistAnalysis';
 import { PlaylistComparison } from '@/components/PlaylistComparison';
-import { ArtistSearch } from '@/components/ArtistSearch';
+import { ArtistComparison } from '@/components/ArtistComparison';import { ArtistSearch } from '@/components/ArtistSearch';
 import { ArtistEras } from '@/components/ArtistEras';
 import { Button } from '@/components/ui/button';
 
@@ -65,6 +65,7 @@ export default function App() {
           {activeTab === 'playlist' && <PlaylistAnalysis />}
           {activeTab === 'artist' && <ArtistAnalysis />}
           {activeTab === 'compare' && <PlaylistComparison />}
+          {activeTab === 'compare' && <ArtistComparison />}
           {activeTab === 'eras' && (
             <div className="space-y-6">
               <ArtistSearch onArtistSelect={setSelectedArtist} />

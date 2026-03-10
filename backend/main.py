@@ -9,6 +9,7 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 from datetime import datetime
+from typing import List, Dict, Any
 import time
 import re
 
@@ -75,27 +76,255 @@ def spotify_request(endpoint: str, params: dict = None) -> dict:
     """Make a request to the Spotify API."""
     token = get_access_token()
     url = f"{SPOTIFY_BASE_URL}/{endpoint}"
-    
+
     response = requests.get(
         url,
         headers={"Authorization": f"Bearer {token}"},
         params=params,
     )
-    
+
     if response.status_code == 401:
-        # Token expired, clear and retry
         global _access_token
         _access_token = None
         return spotify_request(endpoint, params)
-    
+
     if response.status_code != 200:
         try:
             detail = response.json()
-        except:
-            detail = {"error": response.status_code, "message": response.text or "Empty response from Spotify"}
+        except ValueError:
+            detail = {
+                "message": response.text or "Spotify returned a non-JSON error response."
+            }
+
         raise HTTPException(status_code=response.status_code, detail=detail)
-    
-    return response.json()
+
+    try:
+        return response.json()
+    except ValueError:
+        raise HTTPException(
+            status_code=502,
+            detail={"message": "Spotify returned invalid JSON."},
+        )
+
+
+def parse_release_year(release_date: str) -> int | None:
+    """Extract year from Spotify release_date."""
+    if not release_date:
+        return None
+    try:
+        return int(release_date[:4])
+    except (ValueError, TypeError):
+        return None
+
+
+def normalize_album_name(name: str) -> str:
+    """Normalize album names for deduplication."""
+    return name.strip().lower() if name else ""
+
+
+def is_main_studio_album(album: Dict[str, Any]) -> bool:
+    """
+    Keep only main studio albums and exclude noisy variants.
+    """
+    name = normalize_album_name(album.get("name", ""))
+    album_type = album.get("album_type", "").lower()
+    album_group = album.get("album_group", "").lower()
+
+    if album_type != "album" and album_group != "album":
+        return False
+
+    blocked_terms = [
+        "deluxe",
+        "live",
+        "karaoke",
+        "acoustic",
+        "playlist",
+        "tour",
+        "version",
+        "edition",
+        "commentary",
+        "instrumental",
+        "remix",
+        "expanded",
+        "anniversary",
+        "bonus",
+        "collector",
+        "stripped",
+    ]
+
+    return not any(term in name for term in blocked_terms)
+
+
+def get_all_artist_albums(artist_id: str) -> List[Dict[str, Any]]:
+    """
+    Fetch all albums for an artist, handling pagination.
+    """
+    albums = []
+    offset = 0
+    limit = 10
+
+    while True:
+        data = spotify_request(
+            f"artists/{artist_id}/albums",
+            {
+                "limit": limit,
+                "offset": offset,
+                "include_groups": "album",
+            },
+        )
+
+        items = data.get("items", [])
+        if not items:
+            break
+
+        albums.extend(items)
+
+        if len(items) < limit:
+            break
+
+        offset += limit
+
+    return albums
+
+
+def deduplicate_albums(albums: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """
+    Remove duplicates using normalized album name + release year.
+    Keep the first occurrence.
+    """
+    seen = set()
+    unique_albums = []
+
+    for album in albums:
+        name = normalize_album_name(album.get("name", ""))
+        year = parse_release_year(album.get("release_date", ""))
+        key = (name, year)
+
+        if key not in seen:
+            seen.add(key)
+            unique_albums.append(album)
+
+    return unique_albums
+
+
+def calculate_artist_metrics(artist_id: str) -> Dict[str, Any]:
+    """Compute career momentum and catalog depth for one artist."""
+    artist = spotify_request(f"artists/{artist_id}")
+    raw_albums = get_all_artist_albums(artist_id)
+
+    filtered_albums = [album for album in raw_albums if is_main_studio_album(album)]
+    albums = deduplicate_albums(filtered_albums)
+
+    current_year = datetime.now().year
+
+    release_years = []
+    total_tracks = 0
+    longest_album = None
+    shortest_album = None
+    first_release_date = None
+    latest_release_date = None
+
+    album_summaries = []
+
+    for album in albums:
+        release_date = album.get("release_date")
+        year = parse_release_year(release_date)
+        track_count = album.get("total_tracks", 0)
+
+        if year is not None:
+            release_years.append(year)
+
+        if release_date:
+            if first_release_date is None or release_date < first_release_date:
+                first_release_date = release_date
+            if latest_release_date is None or release_date > latest_release_date:
+                latest_release_date = release_date
+
+        total_tracks += track_count
+
+        if longest_album is None or track_count > longest_album["total_tracks"]:
+            longest_album = {
+                "name": album.get("name"),
+                "release_date": release_date,
+                "total_tracks": track_count,
+            }
+
+        if shortest_album is None or track_count < shortest_album["total_tracks"]:
+            shortest_album = {
+                "name": album.get("name"),
+                "release_date": release_date,
+                "total_tracks": track_count,
+            }
+
+        album_summaries.append(
+            {
+                "id": album.get("id"),
+                "name": album.get("name"),
+                "release_date": release_date,
+                "release_year": year,
+                "total_tracks": track_count,
+            }
+        )
+
+    release_years = sorted(release_years)
+    total_albums = len(albums)
+
+    first_album_year = release_years[0] if release_years else None
+    latest_album_year = release_years[-1] if release_years else None
+
+    albums_last_3_years = sum(
+        1 for year in release_years if year is not None and year >= current_year - 2
+    )
+
+    avg_gap = None
+    if len(release_years) > 1:
+        gaps = [release_years[i] - release_years[i - 1] for i in range(1, len(release_years))]
+        avg_gap = round(sum(gaps) / len(gaps), 2)
+
+    career_span = None
+    release_frequency = None
+    if first_album_year is not None and latest_album_year is not None:
+        career_span = latest_album_year - first_album_year
+        if career_span > 0:
+            release_frequency = round(total_albums / career_span, 2)
+        else:
+            release_frequency = float(total_albums)
+
+    avg_tracks_per_album = None
+    if total_albums > 0:
+        avg_tracks_per_album = round(total_tracks / total_albums, 2)
+
+    return {
+        "artist": {
+            "id": artist.get("id"),
+            "name": artist.get("name"),
+            "images": artist.get("images", []),
+        },
+        "career_momentum": {
+            "first_album_year": first_album_year,
+            "latest_album_year": latest_album_year,
+            "first_release_date": first_release_date,
+            "latest_release_date": latest_release_date,
+            "total_albums": total_albums,
+            "albums_last_3_years": albums_last_3_years,
+            "average_years_between_releases": avg_gap,
+            "career_span": career_span,
+            "release_frequency": release_frequency,
+        },
+        "catalog_depth": {
+            "total_albums": total_albums,
+            "total_tracks": total_tracks,
+            "average_tracks_per_album": avg_tracks_per_album,
+            "longest_album": longest_album,
+            "shortest_album": shortest_album,
+        },
+        "albums": sorted(
+            album_summaries,
+            key=lambda x: (x["release_date"] or "")
+        ),
+    }
+
+
 
 
 # Health check
@@ -136,7 +365,6 @@ def get_album(album_id: str):
 
 @app.get("/albums/{album_id}/tracks")
 def get_album_tracks(album_id: str, limit: int = Query(50, ge=1, le=50)):
-    """Get an album's tracks."""
     return spotify_request(f"albums/{album_id}/tracks", {"limit": limit})
 
 
@@ -323,8 +551,22 @@ def get_artist_eras(artist_id: str):
     ]
 }
 
+@app.get("/analyze/artist/{artist_id}")
+def analyze_artist(artist_id: str):
+    """Analyze a single artist."""
+    return calculate_artist_metrics(artist_id)
 
 
+@app.get("/compare/artists")
+def compare_artists(
+    artist1_id: str = Query(..., description="Spotify ID for artist 1"),
+    artist2_id: str = Query(..., description="Spotify ID for artist 2"),
+):
+    """Compare two artists using career momentum and catalog depth metrics."""
+    return {
+        "artist_1": calculate_artist_metrics(artist1_id),
+        "artist_2": calculate_artist_metrics(artist2_id),
+    }
 
 if __name__ == "__main__":
     import uvicorn
