@@ -1,5 +1,8 @@
 import { useState } from 'react';
+import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+
+const API_BASE = 'http://127.0.0.1:8000';
 
 type ArtistSummary = {
   id: string;
@@ -12,13 +15,6 @@ type AlbumSummary = {
   release_date: string;
   release_year: number | null;
   total_tracks: number;
-};
-
-type TrackSummary = {
-  id?: string;
-  name: string;
-  track_number?: number;
-  duration_ms?: number;
 };
 
 type ArtistMetrics = {
@@ -61,8 +57,6 @@ type ComparisonResponse = {
   artist_2: ArtistMetrics;
 };
 
-const API_BASE = 'http://127.0.0.1:8000';
-
 export function ArtistComparison() {
   const [artist1Name, setArtist1Name] = useState('');
   const [artist2Name, setArtist2Name] = useState('');
@@ -70,21 +64,14 @@ export function ArtistComparison() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const [expandedAlbums, setExpandedAlbums] = useState<Record<string, boolean>>({});
-  const [albumTracks, setAlbumTracks] = useState<Record<string, TrackSummary[]>>({});
-  const [loadingAlbums, setLoadingAlbums] = useState<Record<string, boolean>>({});
-
   const formatDecimal = (value: number | null | undefined, unit = '') => {
     if (value === null || value === undefined) return 'N/A';
     return `${value.toFixed(2)}${unit}`;
   };
 
-  const formatDuration = (durationMs?: number) => {
-    if (!durationMs) return '';
-    const totalSeconds = Math.floor(durationMs / 1000);
-    const minutes = Math.floor(totalSeconds / 60);
-    const seconds = totalSeconds % 60;
-    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  const formatPercent = (value: number | null | undefined) => {
+    if (value === null || value === undefined) return 'N/A';
+    return `${(value * 100).toFixed(0)}%`;
   };
 
   const searchArtist = async (name: string): Promise<ArtistSummary> => {
@@ -109,57 +96,9 @@ export function ArtistComparison() {
     };
   };
 
-  const fetchAlbumTracks = async (albumId: string) => {
-    if (albumTracks[albumId]) return;
-
-    setLoadingAlbums((prev) => ({ ...prev, [albumId]: true }));
-
-    try {
-      const response = await fetch(`${API_BASE}/albums/${albumId}/tracks?limit=50`);
-
-      if (!response.ok) {
-        throw new Error('Failed to load album tracks.');
-      }
-
-      const data = await response.json();
-
-      const tracks: TrackSummary[] = (data?.items || []).map((track: any) => ({
-        id: track.id,
-        name: track.name,
-        track_number: track.track_number,
-        duration_ms: track.duration_ms,
-      }));
-
-      setAlbumTracks((prev) => ({
-        ...prev,
-        [albumId]: tracks,
-      }));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load tracks.');
-    } finally {
-      setLoadingAlbums((prev) => ({ ...prev, [albumId]: false }));
-    }
-  };
-
-  const toggleAlbum = async (albumId: string) => {
-    const isCurrentlyExpanded = expandedAlbums[albumId];
-
-    setExpandedAlbums((prev) => ({
-      ...prev,
-      [albumId]: !isCurrentlyExpanded,
-    }));
-
-    if (!isCurrentlyExpanded && !albumTracks[albumId]) {
-      await fetchAlbumTracks(albumId);
-    }
-  };
-
   const handleCompare = async () => {
     setError('');
     setComparison(null);
-    setExpandedAlbums({});
-    setAlbumTracks({});
-    setLoadingAlbums({});
 
     if (!artist1Name.trim() || !artist2Name.trim()) {
       setError('Please enter two artist names.');
@@ -180,7 +119,9 @@ export function ArtistComparison() {
 
       if (!response.ok) {
         const err = await response.json().catch(() => null);
-        throw new Error(err?.detail ? JSON.stringify(err.detail) : 'Failed to compare artists.');
+        throw new Error(
+          err?.detail ? JSON.stringify(err.detail) : 'Failed to compare artists.'
+        );
       }
 
       const data: ComparisonResponse = await response.json();
@@ -192,137 +133,31 @@ export function ArtistComparison() {
     }
   };
 
-  const renderArtistCard = (label: string, data: ArtistMetrics) => {
-    const imageUrl = data.artist.images?.[0]?.url;
+  const getMostRecentAlbum = (albums: AlbumSummary[]) => {
+    if (!albums?.length) return null;
+    return [...albums].sort((a, b) =>
+      (a.release_date || '').localeCompare(b.release_date || '')
+    )[albums.length - 1];
+  };
 
+  const getRecentShareOfCatalog = (artist: ArtistMetrics) => {
+    const total = artist.catalog_depth.total_albums;
+    const recent = artist.career_momentum.albums_last_3_years;
+
+    if (!total || total <= 0) return null;
+    return recent / total;
+  };
+
+  const renderMetricRow = (
+    label: string,
+    artist1Value: string | number,
+    artist2Value: string | number
+  ) => {
     return (
-      <div className="border rounded-lg p-6 bg-white shadow-sm text-black">
-        <div className="flex items-center gap-4 mb-6">
-          {imageUrl ? (
-            <img
-              src={imageUrl}
-              alt={data.artist.name}
-              className="w-20 h-20 rounded-full object-cover"
-            />
-          ) : (
-            <div className="w-20 h-20 rounded-full bg-gray-200" />
-          )}
-
-          <div>
-            <h3 className="text-2xl font-semibold text-gray-900">{data.artist.name}</h3>
-            <p className="text-sm text-gray-600">
-              Comparison based on release history and catalog structure
-            </p>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="border rounded-lg p-4 bg-gray-50">
-            <h4 className="text-lg font-semibold mb-3 text-gray-900">Timeline Summary</h4>
-            <div className="space-y-2 text-sm text-gray-700">
-              <p><span className="font-medium">First release date:</span> {data.career_momentum.first_release_date ?? 'N/A'}</p>
-              <p><span className="font-medium">Latest release date:</span> {data.career_momentum.latest_release_date ?? 'N/A'}</p>
-              <p><span className="font-medium">First album year:</span> {data.career_momentum.first_album_year ?? 'N/A'}</p>
-              <p><span className="font-medium">Latest album year:</span> {data.career_momentum.latest_album_year ?? 'N/A'}</p>
-            </div>
-          </div>
-
-          <div className="border rounded-lg p-4 bg-gray-50">
-            <h4 className="text-lg font-semibold mb-3 text-gray-900">Career Momentum</h4>
-            <div className="space-y-2 text-sm text-gray-700">
-              <p><span className="font-medium">Total albums:</span> {data.career_momentum.total_albums} albums</p>
-              <p><span className="font-medium">Albums in last 3 years:</span> {data.career_momentum.albums_last_3_years} albums</p>
-              <p><span className="font-medium">Average years between releases:</span> {formatDecimal(data.career_momentum.average_years_between_releases, ' years')}</p>
-              <p><span className="font-medium">Career span:</span> {data.career_momentum.career_span ?? 'N/A'} years</p>
-              <p><span className="font-medium">Release frequency:</span> {formatDecimal(data.career_momentum.release_frequency, ' albums/year')}</p>
-            </div>
-          </div>
-
-          <div className="border rounded-lg p-4 bg-gray-50 md:col-span-2">
-            <h4 className="text-lg font-semibold mb-3 text-gray-900">Catalog Depth</h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-700">
-              <div className="space-y-2">
-                <p><span className="font-medium">Total albums:</span> {data.catalog_depth.total_albums} albums</p>
-                <p><span className="font-medium">Total tracks:</span> {data.catalog_depth.total_tracks} tracks</p>
-                <p><span className="font-medium">Average tracks per album:</span> {formatDecimal(data.catalog_depth.average_tracks_per_album, ' tracks/album')}</p>
-              </div>
-
-              <div className="space-y-2">
-                <p>
-                  <span className="font-medium">Longest album:</span>{' '}
-                  {data.catalog_depth.longest_album
-                    ? `${data.catalog_depth.longest_album.name} (${data.catalog_depth.longest_album.total_tracks} tracks)`
-                    : 'N/A'}
-                </p>
-                <p>
-                  <span className="font-medium">Shortest album:</span>{' '}
-                  {data.catalog_depth.shortest_album
-                    ? `${data.catalog_depth.shortest_album.name} (${data.catalog_depth.shortest_album.total_tracks} tracks)`
-                    : 'N/A'}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="border rounded-lg p-4 bg-gray-50 md:col-span-2">
-            <h4 className="text-lg font-semibold mb-3 text-gray-900">{label} Release Timeline</h4>
-            <div className="max-h-96 overflow-y-auto space-y-3">
-              {data.albums.length > 0 ? (
-                data.albums.map((album, index) => (
-                  <div
-                    key={`${album.id}-${index}`}
-                    className="border rounded-lg p-3 bg-white cursor-pointer hover:bg-gray-50 transition"
-                    onClick={() => album.id && toggleAlbum(album.id)}
-                  >
-                    <div className="flex justify-between items-center gap-4">
-                      <div>
-                        <p className="font-medium text-gray-900">{album.name}</p>
-                        <p className="text-sm text-gray-500">
-                          {album.release_date || 'Unknown date'} • {album.total_tracks} tracks
-                        </p>
-                      </div>
-
-                      <div className="text-sm font-medium text-blue-600">
-                        {expandedAlbums[album.id] ? 'Hide Songs' : 'Show Songs'}
-                      </div>
-                    </div>
-
-                    {expandedAlbums[album.id] && (
-                      <div className="mt-3 border-t pt-3">
-                        {loadingAlbums[album.id] ? (
-                          <p className="text-sm text-gray-500">Loading songs...</p>
-                        ) : albumTracks[album.id]?.length ? (
-                          <div className="space-y-2">
-                            {albumTracks[album.id].map((track, trackIndex) => (
-                              <div
-                                key={`${track.id || track.name}-${trackIndex}`}
-                                className="flex justify-between items-center text-sm text-gray-700"
-                              >
-                                <div>
-                                  <span className="font-medium mr-2">
-                                    {track.track_number ?? trackIndex + 1}.
-                                  </span>
-                                  {track.name}
-                                </div>
-                                <div className="text-gray-500">
-                                  {formatDuration(track.duration_ms)}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <p className="text-sm text-gray-500">No songs found for this album.</p>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                ))
-              ) : (
-                <p className="text-sm text-gray-500">No album data available.</p>
-              )}
-            </div>
-          </div>
-        </div>
+      <div className="grid grid-cols-3 gap-4 py-3 border-b border-gray-100 last:border-b-0">
+        <div className="text-sm font-medium text-gray-700">{label}</div>
+        <div className="text-sm text-gray-900">{artist1Value}</div>
+        <div className="text-sm text-gray-900">{artist2Value}</div>
       </div>
     );
   };
@@ -332,7 +167,7 @@ export function ArtistComparison() {
       <div>
         <h2 className="text-2xl font-bold text-gray-900 mb-2">Artist Comparison</h2>
         <p className="text-gray-600">
-          Compare two artists by career momentum, release timelines, and catalog depth.
+          Compare two artists by timeline, catalog size, and recent activity.
         </p>
       </div>
 
@@ -347,6 +182,7 @@ export function ArtistComparison() {
             onChange={(e) => setArtist1Name(e.target.value)}
             placeholder="e.g. Taylor Swift"
             className="w-full border rounded-lg px-4 py-2 text-black bg-white placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-black"
+            onKeyDown={(e) => e.key === 'Enter' && handleCompare()}
           />
         </div>
 
@@ -360,14 +196,23 @@ export function ArtistComparison() {
             onChange={(e) => setArtist2Name(e.target.value)}
             placeholder="e.g. Drake"
             className="w-full border rounded-lg px-4 py-2 text-black bg-white placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-black"
+            onKeyDown={(e) => e.key === 'Enter' && handleCompare()}
           />
         </div>
 
-        <Button 
-          onClick={handleCompare} 
+        <Button
+          onClick={handleCompare}
           disabled={loading}
-          className="bg-black text-white hover:bg-gray-800">
-          {loading ? 'Comparing...' : 'Compare Artists'}
+          className="bg-black text-white hover:bg-gray-800"
+        >
+          {loading ? (
+            <>
+              <Loader2 className="w-4 h-4 animate-spin" />
+              Comparing...
+            </>
+          ) : (
+            'Compare Artists'
+          )}
         </Button>
       </div>
 
@@ -378,9 +223,196 @@ export function ArtistComparison() {
       )}
 
       {comparison && (
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-          {renderArtistCard('Artist 1', comparison.artist_1)}
-          {renderArtistCard('Artist 2', comparison.artist_2)}
+        <div className="space-y-8">
+          {/* Header */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {[comparison.artist_1, comparison.artist_2].map((artistData) => {
+              const imageUrl = artistData.artist.images?.[0]?.url;
+              return (
+                <div
+                  key={artistData.artist.id}
+                  className="border rounded-xl p-6 bg-white shadow-sm"
+                >
+                  <div className="flex items-center gap-4">
+                    {imageUrl ? (
+                      <img
+                        src={imageUrl}
+                        alt={artistData.artist.name}
+                        className="w-20 h-20 rounded-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-20 h-20 rounded-full bg-gray-200" />
+                    )}
+
+                    <div>
+                      <h3 className="text-2xl font-semibold text-gray-900">
+                        {artistData.artist.name}
+                      </h3>
+                      <p className="text-sm text-gray-600">
+                        Release history and catalog comparison
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Column labels */}
+          <div className="grid grid-cols-3 gap-4 px-1">
+            <div />
+            <div className="text-sm font-semibold text-gray-900">
+              {comparison.artist_1.artist.name}
+            </div>
+            <div className="text-sm font-semibold text-gray-900">
+              {comparison.artist_2.artist.name}
+            </div>
+          </div>
+
+          {/* A. Timeline comparison */}
+          <div className="border rounded-xl p-6 bg-white shadow-sm">
+            <h3 className="text-xl font-semibold text-gray-900 mb-4">
+              Timeline Comparison
+            </h3>
+
+            {renderMetricRow(
+              'First release',
+              comparison.artist_1.career_momentum.first_release_date ?? 'N/A',
+              comparison.artist_2.career_momentum.first_release_date ?? 'N/A'
+            )}
+
+            {renderMetricRow(
+              'Latest release',
+              comparison.artist_1.career_momentum.latest_release_date ?? 'N/A',
+              comparison.artist_2.career_momentum.latest_release_date ?? 'N/A'
+            )}
+
+            {renderMetricRow(
+              'Career span',
+              comparison.artist_1.career_momentum.career_span !== null
+                ? `${comparison.artist_1.career_momentum.career_span} years`
+                : 'N/A',
+              comparison.artist_2.career_momentum.career_span !== null
+                ? `${comparison.artist_2.career_momentum.career_span} years`
+                : 'N/A'
+            )}
+
+            {renderMetricRow(
+              'Average years between releases',
+              formatDecimal(
+                comparison.artist_1.career_momentum.average_years_between_releases,
+                ' years'
+              ),
+              formatDecimal(
+                comparison.artist_2.career_momentum.average_years_between_releases,
+                ' years'
+              )
+            )}
+
+            {renderMetricRow(
+              'Albums per year',
+              formatDecimal(
+                comparison.artist_1.career_momentum.release_frequency,
+                ' albums/year'
+              ),
+              formatDecimal(
+                comparison.artist_2.career_momentum.release_frequency,
+                ' albums/year'
+              )
+            )}
+          </div>
+
+          {/* B. Catalog comparison */}
+          <div className="border rounded-xl p-6 bg-white shadow-sm">
+            <h3 className="text-xl font-semibold text-gray-900 mb-4">
+              Catalog Comparison
+            </h3>
+
+            {renderMetricRow(
+              'Total albums',
+              comparison.artist_1.catalog_depth.total_albums,
+              comparison.artist_2.catalog_depth.total_albums
+            )}
+
+            {renderMetricRow(
+              'Total tracks',
+              comparison.artist_1.catalog_depth.total_tracks,
+              comparison.artist_2.catalog_depth.total_tracks
+            )}
+
+            {renderMetricRow(
+              'Average tracks per album',
+              formatDecimal(
+                comparison.artist_1.catalog_depth.average_tracks_per_album,
+                ' tracks'
+              ),
+              formatDecimal(
+                comparison.artist_2.catalog_depth.average_tracks_per_album,
+                ' tracks'
+              )
+            )}
+
+            {renderMetricRow(
+              'Longest album',
+              comparison.artist_1.catalog_depth.longest_album
+                ? `${comparison.artist_1.catalog_depth.longest_album.name} (${comparison.artist_1.catalog_depth.longest_album.total_tracks})`
+                : 'N/A',
+              comparison.artist_2.catalog_depth.longest_album
+                ? `${comparison.artist_2.catalog_depth.longest_album.name} (${comparison.artist_2.catalog_depth.longest_album.total_tracks})`
+                : 'N/A'
+            )}
+
+            {renderMetricRow(
+              'Shortest album',
+              comparison.artist_1.catalog_depth.shortest_album
+                ? `${comparison.artist_1.catalog_depth.shortest_album.name} (${comparison.artist_1.catalog_depth.shortest_album.total_tracks})`
+                : 'N/A',
+              comparison.artist_2.catalog_depth.shortest_album
+                ? `${comparison.artist_2.catalog_depth.shortest_album.name} (${comparison.artist_2.catalog_depth.shortest_album.total_tracks})`
+                : 'N/A'
+            )}
+          </div>
+
+          {/* C. Recent activity comparison */}
+          <div className="border rounded-xl p-6 bg-white shadow-sm">
+            <h3 className="text-xl font-semibold text-gray-900 mb-4">
+              Recent Activity Comparison
+            </h3>
+
+            {renderMetricRow(
+              'Albums in last 3 years',
+              comparison.artist_1.career_momentum.albums_last_3_years,
+              comparison.artist_2.career_momentum.albums_last_3_years
+            )}
+
+            {renderMetricRow(
+              'Recent release date',
+              getMostRecentAlbum(comparison.artist_1.albums)?.release_date ??
+                comparison.artist_1.career_momentum.latest_release_date ??
+                'N/A',
+              getMostRecentAlbum(comparison.artist_2.albums)?.release_date ??
+                comparison.artist_2.career_momentum.latest_release_date ??
+                'N/A'
+            )}
+
+            {renderMetricRow(
+              'Release frequency',
+              formatDecimal(
+                comparison.artist_1.career_momentum.release_frequency,
+                ' albums/year'
+              ),
+              formatDecimal(
+                comparison.artist_2.career_momentum.release_frequency,
+                ' albums/year'
+              )
+            )}
+
+            {renderMetricRow(
+              'Recent share of catalog',
+              formatPercent(getRecentShareOfCatalog(comparison.artist_1)),
+              formatPercent(getRecentShareOfCatalog(comparison.artist_2))
+            )}
+          </div>
         </div>
       )}
     </div>
