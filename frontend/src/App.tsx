@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { Music2, TrendingUp, Users, Clock } from 'lucide-react';
 import { ArtistAnalysis } from '@/components/ArtistAnalysis';
-import { PlaylistComparison } from '@/components/PlaylistComparison';
 import { ArtistComparison } from '@/components/ArtistComparison';import { ArtistSearch } from '@/components/ArtistSearch';
 import { ArtistEras } from '@/components/ArtistEras';
 import { Button } from '@/components/ui/button';
@@ -55,7 +54,6 @@ export default function App() {
         {/* Content */}
         <div className="bg-white rounded-lg shadow-sm p-8">
           {activeTab === 'artist' && <ArtistAnalysis />}
-          {activeTab === 'compare' && <PlaylistComparison />}
           {activeTab === 'compare' && <ArtistComparison />}
           {activeTab === 'eras' && (
             <div className="space-y-6">
