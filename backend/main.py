@@ -183,6 +183,7 @@ def get_all_artist_albums(artist_id: str) -> List[Dict[str, Any]]:
             break
 
         offset += limit
+        time.sleep(0.5)
 
     return albums
 
