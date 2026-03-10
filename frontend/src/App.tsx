@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { Music2, TrendingUp, Users, Clock } from 'lucide-react';
-import { PlaylistAnalysis } from '@/components/PlaylistAnalysis';
 import { ArtistAnalysis } from '@/components/ArtistAnalysis';
 import { PlaylistComparison } from '@/components/PlaylistComparison';
 import { ArtistComparison } from '@/components/ArtistComparison';import { ArtistSearch } from '@/components/ArtistSearch';
@@ -8,7 +7,7 @@ import { ArtistEras } from '@/components/ArtistEras';
 import { Button } from '@/components/ui/button';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'playlist' | 'artist' | 'compare' | 'eras'>('playlist');
+  const [activeTab, setActiveTab] = useState<'artist' | 'compare' | 'eras'>('artist');
   const [selectedArtist, setSelectedArtist] = useState<{ id: string; name: string; images: { url: string }[] } | null>(null);
 
   return (
@@ -26,14 +25,7 @@ export default function App() {
 
         {/* Tab Navigation */}
         <div className="flex gap-4 mb-8 border-b border-gray-200">
-          <Button
-            variant="ghost"
-            onClick={() => setActiveTab('playlist')}
-            className={`rounded-none border-b-2 ${activeTab === 'playlist' ? 'border-gray-900 text-gray-900' : 'border-transparent text-gray-500'}`}
-          >
-            <Music2 className="w-5 h-5" />
-            Playlist Analysis
-          </Button>
+
           <Button
             variant="ghost"
             onClick={() => setActiveTab('artist')}
@@ -62,7 +54,6 @@ export default function App() {
 
         {/* Content */}
         <div className="bg-white rounded-lg shadow-sm p-8">
-          {activeTab === 'playlist' && <PlaylistAnalysis />}
           {activeTab === 'artist' && <ArtistAnalysis />}
           {activeTab === 'compare' && <PlaylistComparison />}
           {activeTab === 'compare' && <ArtistComparison />}
