@@ -3,7 +3,7 @@ import { Loader2 } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import { Button } from '@/components/ui/button';
 
-const API_BASE = 'http://127.0.0.1:8000';
+const API_BASE = 'http://spotfy-api-backend-cs310.us-east-1.elasticbeanstalk.com';
 
 interface AlbumSummary {
   id: string;

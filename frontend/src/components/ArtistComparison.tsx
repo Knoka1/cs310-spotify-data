@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
-const API_BASE = 'http://127.0.0.1:8000';
+const API_BASE = 'http://spotfy-api-backend-cs310.us-east-1.elasticbeanstalk.com';
 
 type ArtistSummary = {
   id: string;
