@@ -7,13 +7,18 @@ import base64
 import requests
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from dotenv import load_dotenv
+from mangum import Mangum
 from datetime import datetime
 from typing import List, Dict, Any
 import time
 import re
 
-load_dotenv()
+# Load dotenv only locally (not in Lambda)
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
 
 app = FastAPI(
     title="Spotify Data API",
@@ -645,6 +650,10 @@ def compare_artists(
         "artist_1": calculate_artist_metrics(artist1_id),
         "artist_2": calculate_artist_metrics(artist2_id),
     }
+
+
+# Lambda handler
+handler = Mangum(app, lifespan="off")
 
 
 if __name__ == "__main__":
