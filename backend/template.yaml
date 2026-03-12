@@ -1,0 +1,46 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Spotify Data API
+
+Globals:
+  Function:
+    Timeout: 30
+    MemorySize: 256
+
+Resources:
+  SpotifyApiFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: spotify-data-api
+      CodeUri: .
+      Handler: main.handler
+      Runtime: python3.12
+      Environment:
+        Variables:
+          SPOTIFY_CLIENT_ID: !Ref SpotifyClientId
+          SPOTIFY_CLIENT_SECRET: !Ref SpotifyClientSecret
+      Events:
+        ApiRoot:
+          Type: HttpApi
+          Properties:
+            Path: /{proxy+}
+            Method: ANY
+        ApiRootPath:
+          Type: HttpApi
+          Properties:
+            Path: /
+            Method: ANY
+
+Parameters:
+  SpotifyClientId:
+    Type: String
+    Description: Spotify Client ID
+  SpotifyClientSecret:
+    Type: String
+    Description: Spotify Client Secret
+    NoEcho: true
+
+Outputs:
+  ApiUrl:
+    Description: API Gateway endpoint URL
+    Value: !Sub "https://${ServerlessHttpApi}.execute-api.${AWS::Region}.amazonaws.com"

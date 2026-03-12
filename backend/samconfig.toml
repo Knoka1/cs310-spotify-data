@@ -1,0 +1,14 @@
+version = 0.1
+
+[default.deploy.parameters]
+stack_name = "spotfy-data-api"
+resolve_s3 = true
+s3_prefix = "spotfy-data-api"
+region = "us-east-1"
+confirm_changeset = true
+capabilities = "CAPABILITY_IAM"
+parameter_overrides = "SpotifyClientId=\"23ce783eb5d34f1083027abac7109468\""
+image_repositories = []
+
+[default.global.parameters]
+region = "us-east-1"
