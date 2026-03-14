@@ -21,7 +21,7 @@ A web app that analyzes Spotify artist discographies and visualizes career timel
 ## Local Setup
 
 ### Prerequisites
-- Python 3.9+
+- Python 3.12+
 - Node.js 18+
 - Spotify Developer account with an app created at [developer.spotify.com](https://developer.spotify.com)
 
